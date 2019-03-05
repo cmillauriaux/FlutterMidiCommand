@@ -46,51 +46,69 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return new MaterialApp(
       home: new Scaffold(
-        appBar: new AppBar(
-          title: const Text('FlutterMidiCommand'),
-          actions: <Widget>[
-            IconButton(
-                onPressed: () {
-                  _midiCommand.startScanningForBluetoothDevices();
-                  setState(() {});
-                },
-                icon: Icon(Icons.refresh))
-          ],
-        ),
-        body: new Center(
-            child: FutureBuilder(
-                future: _midiCommand.devices,
-                builder: (BuildContext context, AsyncSnapshot snapshot) {
-                  if (snapshot.hasData && snapshot.data != null) {
-                    var devices = snapshot.data as List<MidiDevice>;
-                    return ListView.builder(
-                      // Let the ListView know how many items it needs to build
-                      itemCount: devices.length,
-                      // Provide a builder function. This is where the magic happens! We'll
-                      // convert each item into a Widget based on the type of item it is.
-                      itemBuilder: (context, index) {
-                        final device = devices[index];
-
-                        return ListTile(
-                          title: Text(
-                            device.name,
-                            style: Theme.of(context).textTheme.headline,
-                          ),
-                          trailing: device.type == "BLE" ? Icon(Icons.bluetooth) : null,
-                          onTap: () {
-                            _midiCommand.connectToDevice(device);
+          appBar: new AppBar(
+            title: const Text('FlutterMidiCommand'),
+            actions: <Widget>[
+              IconButton(
+                  onPressed: () {
+                    _midiCommand.startScanningForBluetoothDevices();
+                    setState(() {});
+                  },
+                  icon: Icon(Icons.refresh))
+            ],
+          ),
+          body: Builder(
+              builder: (context) => Column(
+                    children: <Widget>[
+                      Container(
+                        child: RaisedButton(
+                          onPressed: () {
+                            print("Test");
                             Navigator.of(context).push(MaterialPageRoute<Null>(
                               builder: (_) => ControllerPage(),
                             ));
                           },
-                        );
-                      },
-                    );
-                  } else {
-                    return new CircularProgressIndicator();
-                  }
-                })),
-      ),
+                          child: const Text('Go'),
+                        ),
+                      ),
+                      Expanded(
+                        child: FutureBuilder(
+                            future: _midiCommand.devices,
+                            builder:
+                                (BuildContext context, AsyncSnapshot snapshot) {
+                              if (snapshot.hasData && snapshot.data != null) {
+                                var devices = snapshot.data as List<MidiDevice>;
+                                return ListView.builder(
+                                  // Let the ListView know how many items it needs to build
+                                  itemCount: devices.length,
+                                  // Provide a builder function. This is where the magic happens! We'll
+                                  // convert each item into a Widget based on the type of item it is.
+                                  itemBuilder: (context, index) {
+                                    final device = devices[index];
+
+                                    return ListTile(
+                                      title: Text(
+                                        device.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headline,
+                                      ),
+                                      trailing: device.type == "BLE"
+                                          ? Icon(Icons.bluetooth)
+                                          : null,
+                                      onTap: () {
+                                        _midiCommand.connectToDevice(device);
+                                      },
+                                    );
+                                  },
+                                );
+                              } else {
+                                return new CircularProgressIndicator();
+                              }
+                            }),
+                      )
+                    ],
+                  ))),
     );
   }
 }

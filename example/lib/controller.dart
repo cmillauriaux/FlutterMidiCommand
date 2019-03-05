@@ -50,7 +50,7 @@ class MidiControlsState extends State<MidiControls> {
         return;
       }
 
-      if (data.length >= 2) {
+      if (data.length > 2) {
         var d1 = data[1];
         var d2 = data[2];
         var rawStatus = status & 0xF0; // without channel

@@ -43,9 +43,7 @@ class FlutterMidiCommandPlugin(): MethodCallHandler {
 
   lateinit var midiManager:MidiManager
   lateinit var handler: Handler
-  private var device:MidiDevice? = null
-  private var deviceInputPort:MidiInputPort? = null
-  private var deviceOutputPort:MidiOutputPort? = null
+  private var devices:MutableMap<String, Port> = mutableMapOf()
 
   lateinit var rxChannel:EventChannel
   val rxStreamHandler = FlutterStreamHandler()
@@ -176,34 +174,39 @@ class FlutterMidiCommandPlugin(): MethodCallHandler {
   private val deviceOpenedListener = object : MidiManager.OnDeviceOpenedListener {
     override fun onDeviceOpened(it: MidiDevice?) {
       it?.also {
-        device = it
+        val port = Port(device = it)
+        devices.put(it.info.id.toString(), port)
         Log.d("FlutterMIDICommand", "Opened ${it.info.toString()}")
 
         if (it.info.inputPortCount > 0)
-          deviceInputPort = it.openInputPort(0)
+          port.deviceInputPort = it.openInputPort(0)
         if (it.info.outputPortCount > 0) {
-          deviceOutputPort = it.openOutputPort(0)
-          deviceOutputPort?.connect(RXHandler(rxStreamHandler))
+          port.deviceOutputPort = it.openOutputPort(0)
+          port.deviceOutputPort?.connect(RXHandler(rxStreamHandler))
         }
-        Log.d("FlutterMIDICommand", "Ports ${deviceInputPort?.portNumber} ${deviceOutputPort?.portNumber}")
+        Log.d("FlutterMIDICommand", "Ports ${port.deviceInputPort?.portNumber} ${port.deviceOutputPort?.portNumber}")
         this@FlutterMidiCommandPlugin.setupStreamHandler.send("deviceOpened")
       }
     }
   }
 
   fun disconnectDevice() {
-      deviceInputPort?.close()
-      deviceOutputPort?.close()
-      device?.close()
-      device = null
+    for ((k, device) in devices) {
+      device.deviceInputPort?.close()
+      device.deviceOutputPort?.close()
+      device.device?.close()
+    }
+    devices = mutableMapOf()
   }
 
   fun sendData(data: ByteArray) {
 //    Log.d("FlutterMIDICommand","send data $data")
-    if (deviceInputPort != null) {
-      deviceInputPort?.send(data, 0, data.count())
-    } else {
-      Log.d("FlutterMIDICommand","no port to send to")
+    for ((k, device) in devices) {
+      if (device.deviceInputPort != null) {
+        device.deviceInputPort?.send(data, 0, data.count())
+      } else {
+        Log.d("FlutterMIDICommand", "no port to send to")
+      }
     }
   }
 
@@ -260,6 +263,11 @@ class FlutterMidiCommandPlugin(): MethodCallHandler {
     fun send(data:Any) {
       eventSink?.success(data)
     }
+  }
+
+  class Port(val device:MidiDevice?) {
+    var deviceInputPort:MidiInputPort? = null;
+    var deviceOutputPort:MidiOutputPort? = null;
   }
 }
 
