@@ -1,7 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
+import 'package:spritewidget/spritewidget.dart';
+import 'package:audioplayers/audio_cache.dart';
+import 'package:synchronized/synchronized.dart';
+import 'package:soundpool/soundpool.dart';
+import 'dart:math' as math;
 
 class ControllerPage extends StatelessWidget {
   Future<bool> _save() {
@@ -37,10 +45,10 @@ class MidiControlsState extends State<MidiControls> {
 
   StreamSubscription<List<int>> _rxSubscription;
   MidiCommand _midiCommand = MidiCommand();
+  StreamController _noteStream = StreamController();
 
   @override
   void initState() {
-    print('init controller');
     _rxSubscription = _midiCommand.onMidiDataReceived.listen((data) {
       print('on data $data');
       var status = data[0];
@@ -53,16 +61,11 @@ class MidiControlsState extends State<MidiControls> {
       if (data.length > 2) {
         var d1 = data[1];
         var d2 = data[2];
-        var rawStatus = status & 0xF0; // without channel
-        var channel = (status & 0x0F) + 1;
-        if (rawStatus == 0xB0 && channel == _channel && d1 == _controller) {
-          setState(() {
-            _value = d2;
-          });
-        }
+        _value = d1;
+        _noteStream.add(d1);
       }
     });
-    super.initState();
+    //super.initState();
   }
 
   void dispose() {
@@ -72,98 +75,119 @@ class MidiControlsState extends State<MidiControls> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: Column(
-        children: <Widget>[
-          SteppedSelector('Channel', _channel, 1, 16, _onChannelChanged),
-          SteppedSelector('Controller', _controller, 0, 127, _onControllerChanged),
-          SlidingSelector('Value', _value, 0, 127, _onValueChanged),
-        ],
-      ),
-    );
-  }
-
-  _onChannelChanged(int newValue) {
-    setState(() {
-      _channel = newValue;
-    });
-  }
-
-  _onControllerChanged(int newValue) {
-    setState(() {
-      _controller = newValue;
-    });
-  }
-
-  _onValueChanged(int newValue) {
-    setState(() {
-      _value = newValue;
-      CCMessage(channel: _channel, controller: _controller, value: _value).send();
-    });
+    return new MyWidget(_noteStream);
   }
 }
 
-class SteppedSelector extends StatelessWidget {
-  final String label;
-  final int minValue;
-  final int maxValue;
-  final int value;
-  final Function(int) callback;
+class MyWidget extends StatefulWidget {
+  StreamController controller;
 
-  SteppedSelector(this.label, this.value, this.minValue, this.maxValue, this.callback);
+  MyWidget(this.controller);
+
+  @override
+  MyWidgetState createState() => new MyWidgetState();
+}
+
+class MyWidgetState extends State<MyWidget> {
+  NodeWithSize rootNode;
+  StreamSubscription _subscription;
+  AudioDrum _drum = new AudioDrum();
+
+  @override
+  void initState() {
+    super.initState();
+    rootNode = new NodeWithSize(const Size(1024.0, 1024.0));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Text(label),
-        IconButton(
-            icon: Icon(Icons.remove_circle),
-            onPressed: (value > minValue)
-                ? () {
-                    callback(value - 1);
-                  }
-                : null),
-        Text(value.toString()),
-        IconButton(
-            icon: Icon(Icons.add_circle),
-            onPressed: (value < maxValue)
-                ? () {
-                    callback(value + 1);
-                  }
-                : null)
-      ],
-    );
+    _drum.load();
+    _subscription = widget.controller.stream.listen((note) async {
+      await _drum.play(note);
+    });
+    return new SpriteWidget(rootNode);
   }
 }
 
-class SlidingSelector extends StatelessWidget {
-  final String label;
-  final int minValue;
-  final int maxValue;
-  final int value;
-  final Function(int) callback;
+class AudioDrum {
+  Soundpool _hiHatpool = Soundpool(streamType: StreamType.music);
+  Soundpool _hiHatpool2 = Soundpool(streamType: StreamType.music);
+  Soundpool _hiHatpool3 = Soundpool(streamType: StreamType.music);
+  Soundpool _kickpool = Soundpool(streamType: StreamType.music);
+  Soundpool _snarepool = Soundpool(streamType: StreamType.music);
+  int _hiHatSound;
+  int _hiHatSound2;
+  int _hiHatSound3;
+  int _kickSound;
+  int _snareSound;
+  int _hiHatCount = 0;
 
-  SlidingSelector(this.label, this.value, this.minValue, this.maxValue, this.callback);
+  load() async {
+    //await _hiHat.init();
+    //await _snare.init();
+    _kickSound = await rootBundle
+        .load("assets/audio/sfx/kick.mp3")
+        .then((ByteData soundData) {
+      return _kickpool.load(soundData);
+    });
+    _hiHatSound = await rootBundle
+        .load("assets/audio/sfx/snare.mp3")
+        .then((ByteData soundData) {
+      return _hiHatpool.load(soundData);
+    });
+    _hiHatSound2 = await rootBundle
+        .load("assets/audio/sfx/snare.mp3")
+        .then((ByteData soundData) {
+      return _hiHatpool2.load(soundData);
+    });
+    _hiHatSound3 = await rootBundle
+        .load("assets/audio/sfx/snare.mp3")
+        .then((ByteData soundData) {
+      return _hiHatpool3.load(soundData);
+    });
+    _snareSound = await rootBundle
+        .load("assets/audio/sfx/hihat.mp3")
+        .then((ByteData soundData) {
+      return _snarepool.load(soundData);
+    });
+    //soundId = await pool.loadUri("https://github.com/ukasz123/soundpool/raw/master/example/sounds/dices.m4a");
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Text(label),
-        Slider(
-          value: value.toDouble(),
-          divisions: maxValue,
-          min: minValue.toDouble(),
-          max: maxValue.toDouble(),
-          onChanged: (v) {
-            callback(v.toInt());
-          },
-        ),
-        Text(value.toString()),
-      ],
-    );
+  play(note) async {
+    print(note);
+    switch (note) {
+      case 36:
+        await _kickpool.play(_kickSound);
+        /*await _hiHat.start('kick.mp3');
+        await _hiHat.start('hihat.mp3');
+        await _hiHat.start('snare.mp3');*/
+        //_hiHat.stop();
+        break;
+      case 38:
+        _hiHatCount = (_hiHatCount + 1) % 3;
+        switch (_hiHatCount) {
+          case 0: 
+            await _hiHatpool.play(_hiHatSound);
+            break;
+          case 1: 
+            await _hiHatpool2.play(_hiHatSound2);
+            break;
+          case 2: 
+            await _hiHatpool3.play(_hiHatSound3);
+            break;
+        }
+        
+        /*await _hiHat.start('kick.mp3');
+        await _hiHat.start('hihat.mp3');
+        await _hiHat.start('snare.mp3');*/
+        //_hiHat.stop();
+        break;
+      case 42:
+        await _snarepool.play(_snareSound);
+        /*await _hiHat.start('kick.mp3');
+        await _hiHat.start('hihat.mp3');
+        await _hiHat.start('snare.mp3');*/
+        break;
+    }
   }
 }

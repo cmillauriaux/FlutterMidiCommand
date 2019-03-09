@@ -32,7 +32,8 @@ class MidiCommand {
     var devs = await _channel.invokeMethod('getDevices');
     return devs.map<MidiDevice>((m) {
       var map = m.cast<String, Object>();
-      return MidiDevice(map["id"], map["name"], map["type"]);
+      print(map);
+      return MidiDevice(map["id"], map["name"], map["type"], map["isConnected"]);
     }).toList();
   }
 
@@ -88,11 +89,12 @@ class MidiDevice {
   String name;
   String id;
   String type;
+  bool isConnected;
 
-  MidiDevice(this.id, this.name, this.type);
+  MidiDevice(this.id, this.name, this.type, this.isConnected);
 
   Map<String, Object> get toDictionary {
-    return {"name": name, "id": id, "type": type};
+    return {"name": name, "id": id, "type": type, "isConnected": isConnected};
   }
 }
 

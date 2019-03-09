@@ -28,6 +28,7 @@ class _MyAppState extends State<MyApp> {
           setState(() {});
           break;
         case "deviceOpened":
+          setState(() {});
           break;
         default:
           print("Unhandled setup change: $data");
@@ -93,7 +94,7 @@ class _MyAppState extends State<MyApp> {
                                             .textTheme
                                             .headline,
                                       ),
-                                      trailing: device.type == "BLE"
+                                      trailing: device.isConnected
                                           ? Icon(Icons.bluetooth)
                                           : null,
                                       onTap: () {

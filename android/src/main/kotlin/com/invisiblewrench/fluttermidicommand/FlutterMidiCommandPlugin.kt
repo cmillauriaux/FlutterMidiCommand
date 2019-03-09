@@ -214,10 +214,10 @@ class FlutterMidiCommandPlugin(): MethodCallHandler {
     var list = mutableListOf<Map<String, Any>>()
 
     val devs:Array<MidiDeviceInfo> = midiManager.devices
-    devs.forEach { d -> list.add(mapOf("name" to d.properties.getString(MidiDeviceInfo.PROPERTY_NAME), "id" to d.id.toString(), "type" to "native" )) }
+    devs.forEach { d -> list.add(mapOf("name" to d.properties.getString(MidiDeviceInfo.PROPERTY_NAME), "id" to d.id.toString(), "type" to "native", "isConnected" to devices.containsKey(d.id.toString() ))) }
 
     discoveredDevices.forEach {
-      list.add(mapOf("name" to it.name, "id" to it.address, "type" to "BLE"))
+      list.add(mapOf("name" to it.name, "id" to it.address, "type" to "BLE", "isConnected" to devices.containsKey(it.address)))
     }
 
     return list.toList()
