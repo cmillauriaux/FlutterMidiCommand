@@ -9,9 +9,6 @@ dependencies:
   flutter:
     sdk: flutter
   spritewidget:
-  audioplayers: ^0.10.0
-  synchronized:
-  flutter_sound:
   soundpool:
 
   # The following adds the Cupertino Icons font to your application.

@@ -1,15 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
+import 'package:flutter_midi_command_example/audio-sound-pool.dart';
+import 'package:flutter_midi_command_example/visual-drum.dart';
 import 'package:spritewidget/spritewidget.dart';
-import 'package:audioplayers/audio_cache.dart';
-import 'package:synchronized/synchronized.dart';
-import 'package:soundpool/soundpool.dart';
-import 'dart:math' as math;
 
 class ControllerPage extends StatelessWidget {
   Future<bool> _save() {
@@ -27,6 +22,7 @@ class ControllerPage extends StatelessWidget {
             title: Text('Controls'),
           ),
           body: MidiControls(),
+          backgroundColor: Color(0xff616161),
         ));
   }
 }
@@ -45,7 +41,7 @@ class MidiControlsState extends State<MidiControls> {
 
   StreamSubscription<List<int>> _rxSubscription;
   MidiCommand _midiCommand = MidiCommand();
-  StreamController _noteStream = StreamController();
+  StreamController _noteStream = StreamController.broadcast();
 
   @override
   void initState() {
@@ -61,8 +57,10 @@ class MidiControlsState extends State<MidiControls> {
       if (data.length > 2) {
         var d1 = data[1];
         var d2 = data[2];
-        _value = d1;
-        _noteStream.add(d1);
+        if (d2 > 10) {
+          _value = d1;
+          _noteStream.add(d1);
+        }
       }
     });
     //super.initState();
@@ -92,102 +90,117 @@ class MyWidgetState extends State<MyWidget> {
   NodeWithSize rootNode;
   StreamSubscription _subscription;
   AudioDrum _drum = new AudioDrum();
+  PlayDrum _visualDrum = new PlayDrum();
 
   @override
   void initState() {
     super.initState();
-    rootNode = new NodeWithSize(const Size(1024.0, 1024.0));
+    rootNode = new NodeWithSize(const Size(1440.0, 2960.0));
+    rootNode.addChild(_visualDrum);
   }
 
   @override
   Widget build(BuildContext context) {
     _drum.load();
     _subscription = widget.controller.stream.listen((note) async {
+      _visualDrum.hit(note);
       await _drum.play(note);
     });
-    return new SpriteWidget(rootNode);
+    SpriteWidget sw =
+        new SpriteWidget(rootNode, SpriteBoxTransformMode.scaleToFit);
+    return sw;
   }
 }
 
-class AudioDrum {
-  Soundpool _hiHatpool = Soundpool(streamType: StreamType.music);
-  Soundpool _hiHatpool2 = Soundpool(streamType: StreamType.music);
-  Soundpool _hiHatpool3 = Soundpool(streamType: StreamType.music);
-  Soundpool _kickpool = Soundpool(streamType: StreamType.music);
-  Soundpool _snarepool = Soundpool(streamType: StreamType.music);
-  int _hiHatSound;
-  int _hiHatSound2;
-  int _hiHatSound3;
-  int _kickSound;
-  int _snareSound;
-  int _hiHatCount = 0;
+class PlayDrum extends NodeWithSize {
+  VisualDrum _hiHat = new VisualDrum(note: 42);
+  VisualDrum _kick = new VisualDrum(note: 36);
+  VisualDrum _snare = new VisualDrum(note: 38);
+  MusicSheet _sheet = new MusicSheet(500, 500);
 
-  load() async {
-    //await _hiHat.init();
-    //await _snare.init();
-    _kickSound = await rootBundle
-        .load("assets/audio/sfx/kick.mp3")
-        .then((ByteData soundData) {
-      return _kickpool.load(soundData);
-    });
-    _hiHatSound = await rootBundle
-        .load("assets/audio/sfx/snare.mp3")
-        .then((ByteData soundData) {
-      return _hiHatpool.load(soundData);
-    });
-    _hiHatSound2 = await rootBundle
-        .load("assets/audio/sfx/snare.mp3")
-        .then((ByteData soundData) {
-      return _hiHatpool2.load(soundData);
-    });
-    _hiHatSound3 = await rootBundle
-        .load("assets/audio/sfx/snare.mp3")
-        .then((ByteData soundData) {
-      return _hiHatpool3.load(soundData);
-    });
-    _snareSound = await rootBundle
-        .load("assets/audio/sfx/hihat.mp3")
-        .then((ByteData soundData) {
-      return _snarepool.load(soundData);
-    });
-    //soundId = await pool.loadUri("https://github.com/ukasz123/soundpool/raw/master/example/sounds/dices.m4a");
+  PlayDrum() : super(Size(1440.0, 2960.0)) {
+    addChild(_sheet);
+    addChild(Background());
+    _hiHat.scale = 0.25;
+    _hiHat.position = new Offset(-100, 0);
+    addChild(_hiHat);
+    _kick.scale = 0.25;
+    _kick.position = new Offset(-100, 500);
+    addChild(_kick);
+    _snare.scale = 0.25;
+    _snare.position = new Offset(-100, 1000);
+    addChild(_snare);
   }
 
-  play(note) async {
-    print(note);
+  hit(note) {
     switch (note) {
       case 36:
-        await _kickpool.play(_kickSound);
-        /*await _hiHat.start('kick.mp3');
-        await _hiHat.start('hihat.mp3');
-        await _hiHat.start('snare.mp3');*/
-        //_hiHat.stop();
+        _kick.hit(36);
         break;
       case 38:
-        _hiHatCount = (_hiHatCount + 1) % 3;
-        switch (_hiHatCount) {
-          case 0: 
-            await _hiHatpool.play(_hiHatSound);
-            break;
-          case 1: 
-            await _hiHatpool2.play(_hiHatSound2);
-            break;
-          case 2: 
-            await _hiHatpool3.play(_hiHatSound3);
-            break;
-        }
-        
-        /*await _hiHat.start('kick.mp3');
-        await _hiHat.start('hihat.mp3');
-        await _hiHat.start('snare.mp3');*/
-        //_hiHat.stop();
+        _snare.hit(38);
         break;
       case 42:
-        await _snarepool.play(_snareSound);
-        /*await _hiHat.start('kick.mp3');
-        await _hiHat.start('hihat.mp3');
-        await _hiHat.start('snare.mp3');*/
+        _hiHat.hit(42);
         break;
     }
+  }
+}
+
+class Background extends Node {
+  @override
+  void paint(Canvas canvas) {
+    canvas.drawRect(Rect.fromLTRB(-150, 0, 300, 3000),
+        new Paint()..color = Color(0xff494949));
+  }
+}
+
+class MusicSheet extends NodeWithSize {
+  Color color = const Color(0x55f9a825);
+  Color tone = const Color(0xfff9a825);
+  int length;
+  int speed;
+  static const double _totalPortion = 250.0;
+
+  MusicSheet(this.length, this.speed) : super(Size(1440.0, 2960.0)) {}
+
+  @override
+  void paint(Canvas canvas) {
+    canvas.drawRect(Rect.fromLTRB(0, 300, length * _totalPortion, 310),
+        new Paint()..color = color);
+    canvas.drawRect(Rect.fromLTRB(0, 800, length * _totalPortion, 810),
+        new Paint()..color = color);
+    canvas.drawRect(Rect.fromLTRB(0, 1300, length * _totalPortion, 1310),
+        new Paint()..color = color);
+
+    for (int i = 0; i < length; i++) {
+      canvas.drawRect(
+          Rect.fromLTRB(i * _totalPortion, 0, i * _totalPortion + 3, 3000),
+          new Paint()..color = color);
+    }
+
+    for (int i = 0; i < length; i++) {
+      canvas.drawRect(
+          Rect.fromLTRB(
+              i * _totalPortion - 30, 250, i * _totalPortion + 30, 350),
+          new Paint()..color = tone);
+      if (i % 4 == 0) {
+        canvas.drawRect(
+            Rect.fromLTRB(
+                i * _totalPortion - 30, 750, i * _totalPortion + 30, 850),
+            new Paint()..color = tone);
+      }
+      if (i % 4 == 2) {
+        canvas.drawRect(
+            Rect.fromLTRB(
+                i * _totalPortion - 30, 1250, i * _totalPortion + 30, 1350),
+            new Paint()..color = tone);
+      }
+    }
+  }
+
+  @override
+  void update(double dt) {
+    this.position = Offset(this.position.dx - dt * speed, this.position.dy);
   }
 }
