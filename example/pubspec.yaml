@@ -10,6 +10,7 @@ dependencies:
     sdk: flutter
   spritewidget:
   soundpool:
+  csv:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -38,6 +39,7 @@ flutter:
    - assets/audio/sfx/snare.mp3
    - assets/audio/sfx/hihat.mp3
    - assets/audio/sfx/kick.mp3
+   - assets/songs/simple.csv
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.io/assets-and-images/#resolution-aware.
