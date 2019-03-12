@@ -13,6 +13,8 @@ import 'package:spritewidget/spritewidget.dart';
 import 'package:csv/csv.dart';
 
 class ControllerPage extends StatelessWidget {
+  StreamController _restartStream =StreamController();
+
   Future<bool> _save() {
     print('close disconnect');
     MidiCommand().disconnectDevice();
@@ -26,14 +28,25 @@ class ControllerPage extends StatelessWidget {
         child: Scaffold(
           appBar: AppBar(
             title: Text('Controls'),
+            actions: <Widget>[
+              IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: () {
+                _restartStream.add("");
+              },
+            ),
+            ],
           ),
-          body: MidiControls(),
+          body: MidiControls(_restartStream.stream),
           backgroundColor: Color(0xff616161),
         ));
   }
 }
 
 class MidiControls extends StatefulWidget {
+  Stream _onRestartConsumer;
+  MidiControls(this._onRestartConsumer) {}
+  
   @override
   MidiControlsState createState() {
     return new MidiControlsState();
@@ -45,6 +58,8 @@ class MidiControlsState extends State<MidiControls> {
   var _controller = 0;
   var _value = 0;
 
+  MidiControlsState() {}
+
   StreamSubscription<List<int>> _rxSubscription;
   MidiCommand _midiCommand = MidiCommand();
   StreamController _noteStream = StreamController.broadcast();
@@ -52,7 +67,7 @@ class MidiControlsState extends State<MidiControls> {
   @override
   void initState() {
     _rxSubscription = _midiCommand.onMidiDataReceived.listen((data) {
-      print('on data $data');
+      //print('on data $data');
       var status = data[0];
 
       if (status == 0xF8) {
@@ -79,14 +94,15 @@ class MidiControlsState extends State<MidiControls> {
 
   @override
   Widget build(BuildContext context) {
-    return new MyWidget(_noteStream);
+    return new MyWidget(_noteStream, widget._onRestartConsumer);
   }
 }
 
 class MyWidget extends StatefulWidget {
   StreamController controller;
+  Stream _onRestartConsumer;
 
-  MyWidget(this.controller);
+  MyWidget(this.controller, this._onRestartConsumer);
 
   @override
   MyWidgetState createState() => new MyWidgetState();
@@ -97,6 +113,9 @@ class MyWidgetState extends State<MyWidget> {
   StreamSubscription _subscription;
   AudioDrum _drum = new AudioDrum();
   PlayDrum _visualDrum = new PlayDrum();
+  StreamSubscription _onRestartSubscription;
+
+  MyWidgetState() { }
 
   @override
   void initState() {
@@ -109,6 +128,9 @@ class MyWidgetState extends State<MyWidget> {
   @override
   Widget build(BuildContext context) {
     _drum.load();
+    _onRestartSubscription = widget._onRestartConsumer.listen((data) {
+      _visualDrum.restartSong();
+    });
     _subscription = widget.controller.stream.listen((note) async {
       _visualDrum.hit(note);
       await _drum.play(note);

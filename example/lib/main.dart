@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
 import 'package:flutter_midi_command_example/controller.dart';
 
-//void main() => runApp(new MyApp());
-void main() => runApp(new MidiControls());
+void main() => runApp(new MyApp());
+//void main() => runApp(new MidiControls());
 
 class MyApp extends StatefulWidget {
   @override
