@@ -1,8 +1,10 @@
 import 'dart:ui';
 
-import 'package:flutter_midi_command_example/song.dart';
-import 'package:flutter_midi_command_example/visual-drum.dart';
+import 'package:flutter_midi_command_example/components/visual-drum.dart';
+import 'package:flutter_midi_command_example/models/song.dart';
 import 'package:spritewidget/spritewidget.dart';
+
+const double _totalPortion = 250.0;
 
 class PlayDrum extends NodeWithSize {
   VisualDrum _hiHat = new VisualDrum(note: 42);
@@ -10,9 +12,11 @@ class PlayDrum extends NodeWithSize {
   VisualDrum _snare = new VisualDrum(note: 38);
   PlayBar _playBar = new PlayBar();
   MusicSheet _sheet = new MusicSheet();
+  Song song;
+  final Function(SongState) updateStatus;
 
-  PlayDrum() : super(Size(1440.0, 2960.0)) {
-    _sheet.position = Offset(MusicSheet._totalPortion * 4 + 600, 0);
+  PlayDrum(this.updateStatus) : super(Size(1440.0, 2960.0)) {
+    _sheet.position = Offset(_totalPortion * 4 + 600, 0);
     addChild(_sheet);
     addChild(Background());
     _hiHat.scale = 0.25;
@@ -29,17 +33,30 @@ class PlayDrum extends NodeWithSize {
   }
 
   loadSong() async {
-    Song s = await Song.loadFromCSV("assets/songs/simple.csv");
-    _sheet.loadSong(s);
+    song = await Song.loadFromCSV("assets/songs/simple.csv", updateStatus);
+    _sheet.loadSong(song);
+    song.start();
   }
 
   restartSong() {
-    _sheet.position = Offset(MusicSheet._totalPortion * 4 + 600, 0);
-    _sheet.restartSong();
+    song.start();
+    _sheet.position = Offset(_totalPortion * 4 + 600, 0);
+  }
+
+  stopSong() {
+    song.stop();
+  }
+
+  pauseSong() {
+    song.pause();
+  }
+
+  resumeSong() {
+    song.start();
   }
 
   hit(note) {
-    _sheet.hit(note);
+    song.hit(note);
     switch (note) {
       case 36:
         _kick.hit(36);
@@ -79,37 +96,21 @@ class MusicSheet extends NodeWithSize {
   Color almostColor = const Color(0xff303f9f);
   Color badColor = const Color(0xffd32f2f);
   Song song;
-  double tempo = -1; 
-  static const double _totalPortion = 250.0;
-  static const double _toleranceGoodHit = 0.15;
-  static const double _toleranceAlmostHit = 0.3;
 
-  MusicSheet() : super(Size(1440.0, 2960.0)) {}
+  MusicSheet() : super(Size(1440.0, 2960.0));
 
   loadSong(Song s) {
     this.song = s;
   }
 
-  restartSong() {
-    tempo = -1;
-    song.tracks.forEach((track, tones) {
-        for (var tone in tones) {
-          tone.isGood = false;
-          tone.isMissed = false;
-          tone.isTooLate = false;
-          tone.isTooSoon = false;
-        }
-    });
-  }
-
   @override
   void paint(Canvas canvas) {
     if (song != null) {
-      canvas.drawRect(Rect.fromLTRB(0, 275, song.length * _totalPortion, 280),
+      canvas.drawRect(Rect.fromLTRB(-1500, 275, song.length * _totalPortion, 280),
           new Paint()..color = lineColor);
-      canvas.drawRect(Rect.fromLTRB(0, 775, song.length * _totalPortion, 780),
+      canvas.drawRect(Rect.fromLTRB(-1500, 775, song.length * _totalPortion, 780),
           new Paint()..color = lineColor);
-      canvas.drawRect(Rect.fromLTRB(0, 1275, song.length * _totalPortion, 1280),
+      canvas.drawRect(Rect.fromLTRB(-1500, 1275, song.length * _totalPortion, 1280),
           new Paint()..color = lineColor);
 
       song.tracks.forEach((track, tones) {
@@ -142,7 +143,7 @@ class MusicSheet extends NodeWithSize {
         }
       });
 
-      for (int i = 0; i < song.length; i++) {
+      for (int i = -5; i < song.length; i++) {
         canvas.drawRect(
             Rect.fromLTRB(i * _totalPortion, 0, i * _totalPortion + 3, 3000),
             new Paint()..color = lineColor);
@@ -153,53 +154,17 @@ class MusicSheet extends NodeWithSize {
   @override
   void update(double dt) {
     if (song != null) {
-      if (tempo == -1 && this.position.dx < 600) {
-        tempo = 0;
-      } else if (tempo >= 0) {
-        tempo += dt;
-        song.tracks.forEach((track, tones) {
-        for (var tone in tones) {
-          if (!tone.isGood && !tone.isTooLate && !tone.isTooSoon && song.speed / 60 * tempo > tone.time + _toleranceAlmostHit) {
-            tone.isMissed = true;
-          }
-        }
-        });
+      if (song.state == SongState.starting && this.position.dx < 600) {
+        song.play();
+      } else if (song.state == SongState.play) {
+        song.update(dt);
       }
 
-      this.position = Offset(
-          this.position.dx - (dt * song.speed * _totalPortion / 60),
-          this.position.dy);
-    }
-  }
-
-  hit(note) {
-    String key = "";
-    switch (note) {
-      case 36:
-        key =  "kick";
-            break;
-      case 38:
-        key =  "snare";
-            break;
-      case 42:
-        key =  "hiHat";
-        break;
-    }
- 
-    if (key != "" && song.tracks.containsKey(key)) {
-      for (var tone in song.tracks[key]) {
-          print(key);
-          if (song.speed / 60 * tempo > tone.time - _toleranceGoodHit && song.speed / 60 * tempo < tone.time + _toleranceGoodHit) {
-            tone.isGood = true;
-            return;
-          } else if (song.speed / 60 * tempo > tone.time - _toleranceAlmostHit && song.speed / 60 * tempo < tone.time) {
-            tone.isTooSoon = true;
-            return;
-          } else if (song.speed / 60 * tempo > tone.time && song.speed / 60 * tempo < tone.time + _toleranceAlmostHit) {
-            tone.isTooLate = true;
-            return;
-          }
-        }
+      if (song.state == SongState.starting || song.state == SongState.play) {
+        this.position = Offset(
+            this.position.dx - (dt * song.speed * _totalPortion / 60),
+            this.position.dy);
+      }
     }
   }
 }

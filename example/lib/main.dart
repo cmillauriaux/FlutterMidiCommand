@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
-import 'package:flutter_midi_command_example/controller.dart';
+import 'package:flutter_midi_command_example/pages/play_drum.dart';
+import 'package:flutter_midi_command_example/pages/songs_list.dart';
 
-void main() => runApp(new MyApp());
-//void main() => runApp(new MidiControls());
+void main() => runApp(new MaterialApp(home: new SongsListPage()));
+//void main() => runApp(new MyApp());
+//void main() => runApp(new MaterialApp(home: new MidiControls(StreamController.broadcast().stream)));
 
 class MyApp extends StatefulWidget {
   @override
@@ -67,7 +69,7 @@ class _MyAppState extends State<MyApp> {
                           onPressed: () {
                             print("Test");
                             Navigator.of(context).push(MaterialPageRoute<Null>(
-                              builder: (_) => ControllerPage(),
+                              builder: (_) => PlayDrumPage(),
                             ));
                           },
                           child: const Text('Go'),

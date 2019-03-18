@@ -1,19 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
-import 'package:flutter_midi_command_example/audio-sound-pool.dart';
-import 'package:flutter_midi_command_example/drum.dart';
-import 'package:flutter_midi_command_example/song.dart';
-import 'package:flutter_midi_command_example/visual-drum.dart';
+import 'package:flutter_midi_command_example/components/drum.dart';
+import 'package:flutter_midi_command_example/models/audio-sound-pool.dart';
+import 'package:flutter_midi_command_example/models/song.dart';
+import 'package:flutter_midi_command_example/pages/song_result.dart';
 import 'package:spritewidget/spritewidget.dart';
-import 'package:csv/csv.dart';
 
-class ControllerPage extends StatelessWidget {
-  StreamController _restartStream =StreamController();
+class PlayDrumPage extends StatelessWidget {
+  final StreamController _restartStream = StreamController();
 
   Future<bool> _save() {
     print('close disconnect');
@@ -44,8 +40,8 @@ class ControllerPage extends StatelessWidget {
 }
 
 class MidiControls extends StatefulWidget {
-  Stream _onRestartConsumer;
-  MidiControls(this._onRestartConsumer) {}
+  final Stream _onRestartConsumer;
+  MidiControls(this._onRestartConsumer);
   
   @override
   MidiControlsState createState() {
@@ -54,11 +50,7 @@ class MidiControls extends StatefulWidget {
 }
 
 class MidiControlsState extends State<MidiControls> {
-  var _channel = 1;
-  var _controller = 0;
-  var _value = 0;
-
-  MidiControlsState() {}
+  MidiControlsState();
 
   StreamSubscription<List<int>> _rxSubscription;
   MidiCommand _midiCommand = MidiCommand();
@@ -67,7 +59,6 @@ class MidiControlsState extends State<MidiControls> {
   @override
   void initState() {
     _rxSubscription = _midiCommand.onMidiDataReceived.listen((data) {
-      //print('on data $data');
       var status = data[0];
 
       if (status == 0xF8) {
@@ -79,12 +70,11 @@ class MidiControlsState extends State<MidiControls> {
         var d1 = data[1];
         var d2 = data[2];
         if (d2 > 10) {
-          _value = d1;
           _noteStream.add(d1);
         }
       }
     });
-    //super.initState();
+    super.initState();
   }
 
   void dispose() {
@@ -99,8 +89,8 @@ class MidiControlsState extends State<MidiControls> {
 }
 
 class MyWidget extends StatefulWidget {
-  StreamController controller;
-  Stream _onRestartConsumer;
+  final StreamController controller;
+  final Stream _onRestartConsumer;
 
   MyWidget(this.controller, this._onRestartConsumer);
 
@@ -112,10 +102,12 @@ class MyWidgetState extends State<MyWidget> {
   NodeWithSize rootNode;
   StreamSubscription _subscription;
   AudioDrum _drum = new AudioDrum();
-  PlayDrum _visualDrum = new PlayDrum();
+  PlayDrum _visualDrum;
   StreamSubscription _onRestartSubscription;
 
-  MyWidgetState() { }
+  MyWidgetState() {
+    _visualDrum = new PlayDrum(updateStatus);
+  }
 
   @override
   void initState() {
@@ -138,5 +130,17 @@ class MyWidgetState extends State<MyWidget> {
     SpriteWidget sw =
         new SpriteWidget(rootNode, SpriteBoxTransformMode.scaleToFit);
     return sw;
+  }
+
+  void dispose() {
+    _subscription.cancel();
+    _onRestartSubscription.cancel();
+    super.dispose();
+  }
+
+  void updateStatus(SongState status) {
+    if (status == SongState.stop) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => SongResultPage(_visualDrum.song)));
+    }
   }
 }

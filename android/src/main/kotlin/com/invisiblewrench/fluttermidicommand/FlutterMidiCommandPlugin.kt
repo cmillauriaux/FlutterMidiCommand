@@ -71,7 +71,9 @@ class FlutterMidiCommandPlugin(): MethodCallHandler {
     midiManager.registerDeviceCallback(deviceConnectionCallback, handler)
 
     val blManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    bluetoothAdapter = blManager.adapter
+    if (blManager != null) {
+      bluetoothAdapter = blManager.adapter
+    }
     bluetoothScanner = bluetoothAdapter.bluetoothLeScanner
   }
 
